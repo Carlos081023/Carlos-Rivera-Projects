@@ -249,7 +249,6 @@ Hotel_Bookings2 %>%
   view()
 Hotel_Bookings2 <- Hotel_Bookings2 %>%
   mutate(country = ifelse(country == "", "Other", country))
-
 Hotel_Bookings2 <- Hotel_Bookings2 %>%
   mutate(across(c(market_segment, distribution_channel), ~ ifelse(. == "Undefined", "Other", .))) %>% 
   view()
@@ -260,9 +259,7 @@ Hotel_Bookings2 %>%
  arrange(adr) %>% 
   view()
 Hotel_Bookings2 <- Hotel_Bookings2 %>% 
-  filter(adr <= 0) %>% 
-  view()
-Hotel_Bookings2 <- Hotel_Bookings2 %>% 
+  filter(adr >= 0) %>% 
   mutate(adr = ifelse(adr == 5400, 540,adr)) %>% 
   view()
 # I noticed some strange values for hotel ADRs. I opt to remove some values. From doing further research, ADR
@@ -302,6 +299,7 @@ Hotel_Bookings2 <- Hotel_Bookings2 %>%
          assigned_room_type = as.factor(assigned_room_type))
 str(Hotel_Bookings2)
 # Changed some variables from chr to categorical variable type. Some follow a binary system so this is a more appropriate data type
+# Changing the variable to categorical will help for the statistical analysis.
 
 Hotel_Bookings2 <- Hotel_Bookings2 %>%
   mutate(arrival_date_month =recode(arrival_date_month, 
@@ -338,7 +336,7 @@ str(Hotel_Bookings2)
 # Here I combine the date related information into one column for easier readability and just to standardize
 # the column in relation to the reservation date column. I also did a data type change from chr to date
 # for the appropriate change. Also removed the weeks column since it isn't really needed and just overkill. 
-# date will suffice.
+# date will suffice. At this point the file is cleaned and be exported for further use. I will continue the project in R
 
 #################################### Summary/Descriptive Statistics ###################################################
 
@@ -354,23 +352,12 @@ Lead_Time_Summary <- Hotel_Bookings2 %>%
     Maximum = max(lead_time),
     Difference = max(lead_time)-min(lead_time)) %>% 
   view()
-# Table shows statistics based on each hotel type. Both hotel types share the same minimum lead time or number of days till check in
-# On average, people book 78 days leading up to the check in date while people books 83 days leading up to checking date.
-# The high values that people will book in advance for resort hotels is 737 days and city is 629 days
-# Update: Every code has been updated to reflect reservations that were NOT cancelled to reflect accurate numbers
-
-Hotel_Occupancy <- Hotel_Bookings2 %>% 
-  drop_na() %>% 
-  mutate(
-      arrival_year = year(arrival_date),
-      arrival_month = month(arrival_date, label = TRUE, abbr = FALSE)
-  ) %>% 
-  group_by(hotel,arrival_year,arrival_month) %>% 
-  summarize(
-    Total_Number_of_Bookings = n(),
-    Total_Actual_Bookings = sum(is_canceled==0),
-    .groups = "drop") %>% 
-  view()
+# This code reflects the bookings of all reservations, canceled or not, and shows the number of days leading up to the
+# reservation date.
+# Key Takeaways: Both Hotels experience the same minimum lead time meaning people will check into the hotel the same day.
+# Distinguishing the two, Resort Hotels have the highest lead time with a booking that was made over 2 years in advance!
+# People also tend to, on average, book 78 days in advance for City hotels, In comparison to 83 days in advance
+# for Resort hotels.
 
 Overall_Occupancy <- Hotel_Bookings2 %>%
   drop_na() %>%
@@ -383,13 +370,24 @@ Overall_Occupancy <- Hotel_Bookings2 %>%
     Total_Number_of_Bookings = n(),
     Total_Actual_Bookings = sum(is_canceled == 0),
     .groups = 'drop'
+  ) %>% view()
+
+# Occupancy broken down by Hotel type
+Hotel_Occupancy <- Hotel_Bookings2 %>% 
+  drop_na() %>% 
+  mutate(
+    arrival_year = year(arrival_date),
+    arrival_month = month(arrival_date, label = TRUE, abbr = FALSE)
   ) %>% 
-  
-  pivot_longer(cols = c(Total_Number_of_Bookings, Total_Actual_Bookings),
-               names_to = "Booking_Type",
-               values_to = "Count")
-# These are tables that relate to total number of guests. First one is broken down by hotel,year,and month whilst the 2nd
-# is just broken down by year and month
+  group_by(hotel,arrival_year,arrival_month) %>% 
+  summarize(
+    Total_Number_of_Bookings = n(),
+    Total_Actual_Bookings = sum(is_canceled==0),
+    .groups = "drop") %>% 
+  view()
+
+# The code reflects hotel occupancy. Total bookings includes those that have either cancelled their bookings or have shown up
+# Total Actual reflects the actual number of bookings that occupy the hotels. First from a overall view and then broken down by each hotel type
 
 Monthly_ADR <-Hotel_Bookings2 %>% 
   drop_na() %>% 
@@ -404,8 +402,10 @@ Monthly_ADR <-Hotel_Bookings2 %>%
   ) %>% 
   pivot_wider(names_from = arrival_year, values_from = ADR) %>% 
   view()
-# Shows the Average ADR per month. Shows that ADR is lower in off-peak seasons but highest in the summer months. I Won't filter out
-# the adr of those that didn't complete their booking because the ADR is still usefull regardless of completion of the booking
+
+# This code reflects the ADR or Average Daily Rate of bookings for rooms at the hotel.
+# It takes the ADRs of each month and extracts the average for each month and each year into a
+# tabular form for easier readability.
 
 Monthly_Cancellations <- Hotel_Bookings2 %>%
   drop_na() %>% 
@@ -419,11 +419,10 @@ Monthly_Cancellations <- Hotel_Bookings2 %>%
     Total_Num_of_Cancellations = n(),.groups = "drop") %>% 
   pivot_wider(names_from = arrival_year, values_from = Total_Num_of_Cancellations)
 
-# Tables show number of cancellations each month by each year 
-
-# Showing Revenue for bookings that were not cancelled. However, it is also possible to see the possible revenue to have gained
-# from the cancelled bookings. This could be useful for marketing to use to find strategies to capture that lost revenue 
-# either through discounts or vouchers or promotional offerings
+# This code reflects the number of bookings that were specifically cancelled. It is the opposite of the occupancy
+# table but still is useful for understanding how many cancellations happen and opens the door
+# for marketing strategies to find new ways to lower the number of cancellations. In a tabular
+# form for easier readability.
 
 # Adding Calculated columns for further insights
 Hotel_Revenue <- Hotel_Bookings2 %>% 
@@ -459,6 +458,11 @@ Monthly_Revenue_By_Hotel <- Hotel_Revenue %>%
     .groups = "drop"
   )
 
+# This code reflects the total revenue gained from each booking for hotels. Firstly,
+# a new data frame was created to create the calculated column of revenue by following the formula
+# above. I then used the new data frame from there on out to then get monthly revenue overall and then
+# broken down by hotel type.
+
 # Now lets see what our customer type breakdown, how much revenue is collected from each group, and find where they booking from
 Customer_Type_Revenue <- Hotel_Revenue %>% 
   group_by(customer_type) %>% 
@@ -468,6 +472,10 @@ Customer_Type_Revenue <- Hotel_Revenue %>%
     Average_Revenue = mean(booking_revenue)
 ) %>% 
   view()
+
+# This code reflects the bookings made by different customer types. It looks at the total number of bookings made
+# The total revenue generated from each group of customer and calculates the average revenue from each group
+
 Market_Revenue<- Hotel_Revenue %>% 
   group_by(market_segment) %>% 
   summarise(
@@ -475,6 +483,9 @@ Market_Revenue<- Hotel_Revenue %>%
     Total_Revenue = sum(booking_revenue),
     Average_Revenue = mean(booking_revenue)) %>% 
     view()
+
+# This code reflects the bookings broken down by market segment. It looks at the total number of bookings made,
+# the total revenue generated by each market segment, and calculates the average revenue generated.
 
 Channel_Revenue<- Hotel_Revenue %>% 
   group_by(distribution_channel) %>% 
@@ -484,6 +495,9 @@ Channel_Revenue<- Hotel_Revenue %>%
     Average_Revenue = mean(booking_revenue)) %>% 
   view()
 
+# This code reflects the number of bookings broken down by the different distribution channels. It looks at the total number of bookings made,
+# the total revenue generated by each distribution channel, and calculates the average revenue.
+
 # After doing some descriptive statistics, now I will visualize my findings to better tell the story of this data!
 
 ############################################## Data Visualizations ###################################################
@@ -492,51 +506,85 @@ Channel_Revenue<- Hotel_Revenue %>%
 library(ggplot2)
 
 # This is a timeline of the all bookings from July 2015 to August 2017
-Overall_Bookings_Plot <- ggplot(data = Overall_Occupancy, mapping = aes(x = interaction(arrival_month, arrival_year, sep = "-"), y = Count, color = Booking_Type, group = Booking_Type)) +
+Overall_Occupancy2 <- Hotel_Bookings2 %>%
+  drop_na() %>%
+  mutate(
+    arrival_year = year(arrival_date),
+    arrival_month = month(arrival_date, label = TRUE, abbr = FALSE)
+  ) %>%
+  group_by(arrival_year, arrival_month) %>%
+  summarise(
+    Total_Number_of_Bookings = n(),
+    Total_Actual_Bookings = sum(is_canceled == 0),
+    .groups = 'drop'
+  ) %>% pivot_longer(cols = c(Total_Number_of_Bookings, Total_Actual_Bookings),
+                     names_to = "Booking_Type",
+                     values_to = "Count")
+Overall_Bookings_Plot <- ggplot(data = Overall_Occupancy2, mapping = aes(x = interaction(arrival_month, arrival_year, sep = "-"), y = Count, color = Booking_Type, group = Booking_Type)) +
   geom_point() +
   geom_line() +
-  labs(title = "Total and Actual Number of Bookings Over Time",
+  labs(title = "Number of Bookings Over Time",
        x = "Year-Month",
-       y = "Number of Bookings") +
+       y = "Number of Bookings")+
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) +
-  scale_color_manual(values = c("Total_Number_of_Bookings" = "purple", "Total_Actual_Bookings" = "blue"), 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  scale_color_manual(values = c("Total_Number_of_Bookings" = "purple", "Total_Actual_Bookings" = "blue"),
                      labels = c("Total Bookings", "Actual Bookings"))
-# This plot displays the total number of bookings (cancelled or not) and 
-# a second one which reflects all completed bookings. The gap is the difference
-# which reflects cancellations.
 
-# This is the same plot however a stacked plot where we can distinguish between each hotel type
+# This code can be broken down in two core parts, the table where I extract the data and the visualization derived from
+# that extraction. I modified the code to be able to properly create a visualization. I take the Overall_Occupancy and make the data
+# in long form, hence the pivot_longer function. From there, using the ggplot2 function, ggplot, I am able to create a 
+# scatter plot and line graph that shows the trend of overall bookings over a period of time. 
+
 Hotel_Type_Plot <- ggplot(data = Hotel_Occupancy, aes(x = interaction(arrival_month, arrival_year, sep = "-"), y = Total_Actual_Bookings, group = hotel, colour = hotel)) +
   geom_point()+
   geom_line() +
   labs(title = "Total Number of Bookings Over Time",
-       x = "Year-Month",
+       x = element_blank(),
        y = "Number of Bookings",
        fill = "Hotel") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-# IMPORTANT: This plot reflects data of hotel bookings that were not cancelled.
-# Key Takeaways: Resort Hotels are more stable however City Hotels are more popular
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
-Monthly_ADR_Plot <- ggplot(data = Monthly_ADR, mapping = aes(x = interaction(arrival_month,arrival_year, sep = "-"), y = ADR, group = 1)) +
+# This code takes the Hotel_Occupancy table from the Descriptive statistics section and then using ggplot
+# I create a visualization that shows the number of bookings over time, like the viz from above, but breaks it down by 
+# hotel type for a more detailed look.
+Monthly_ADR2 <-Hotel_Bookings2 %>% 
+  drop_na() %>% 
+  mutate(
+    arrival_year = year(arrival_date),
+    arrival_month = month(arrival_date, label = TRUE, abbr = FALSE)
+  ) %>% 
+  group_by(arrival_year,arrival_month) %>% 
+  summarize(
+    ADR = mean(adr),
+    .groups = "drop"
+  )
+Monthly_ADR_Plot <- ggplot(data = Monthly_ADR2, mapping = aes(x = interaction(arrival_month,arrival_year, sep = "-"), y = ADR, group = 1)) +
   geom_col(fill = "lightblue") +
   geom_line(colour = "red", linewidth = 1.5)+
   labs(title = "ADR per Month Over Time",
-       x = "Year-Month",
+       x = element_blank(),
        y = "Average Daily Rate (ADR)")+
+  scale_y_continuous(label = scales::dollar_format(scale = 1))+
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-# This barplot reflects the average of the adr for each month and each year. A line
-# is also layered to emphasize the trend in data.
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
-Monthly_Revenue <- Hotel_Revenue %>% 
+# This code reflects the Average Daily Rate or adr over time. It is in two major parts, first I code
+# the Monthly ADR table and modify it so it can properly be used for the visualization. I then create
+# a column chart of the average of the adrs for each month into a month-year timeline. I add a line in red to 
+# emphasize the trend of adr. 
+
+Monthly_Revenue2 <- Hotel_Revenue %>% 
   mutate(
     arrival_year = year(arrival_date),
     arrival_month = month(arrival_date, label = TRUE, abbr = FALSE)
@@ -546,22 +594,21 @@ Monthly_Revenue <- Hotel_Revenue %>%
     Total_Revenue = sum(booking_revenue),
     .groups = "drop"
   ) 
-Monthly_Revenue_Plot <- ggplot(data = Monthly_Revenue, mapping = aes(x = interaction(arrival_month,arrival_year), y = Total_Revenue, group = 1))+
+Monthly_Revenue_Plot <- ggplot(data = Monthly_Revenue2, mapping = aes(x = interaction(arrival_month,arrival_year), y = Total_Revenue, group = 1))+
   geom_point(colour = "purple")+
   geom_line(colour = "purple")+
   labs(title = "Monthly Revenue Over Time",
-       x = "Year-Month",
+       x = element_blank(),
        y = "Revenue")+
+  scale_y_continuous(label = scales::dollar_format(scale = 1))+
   theme_minimal()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-#IMPORTANT: I copied my code for the monthly revenue however I made an adjustment to be able to produce the visualization
-# by removing the pivot wider function. 
-# Key takeaways: This shows the overall trend of total revenue. It is very evident that 
-# summer months tend to perform the best in comparison to the other 3 seasons. 
-# Hotel revenue each summer period tends to perform better than the previous peak season
-# and that goes for each other season as well.
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+# This code reflects the Monthly revenue generated over time. It takes the Monthly revenue table from eariler,
+# and I modify the code to properly create a visualization.
 
 Monthly_Revenue_By_Hotel <- Hotel_Revenue %>% 
   mutate(
@@ -577,17 +624,18 @@ Monthly_Revenue_By_Hotel_Plot <- ggplot(data = Monthly_Revenue_By_Hotel, mapping
   geom_point()+
   geom_line()+
   labs(title = "Monthly Revenue Over Time by Hotel Type",
-       x = "Year-Month",
-       y = "Revenue ")+
+       x = element_blank(),
+       y = "Revenue $")+
   scale_y_continuous(label = scales::dollar_format(scale = 0.001,suffix = "K"))+
   theme_minimal()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-# Key takeaways: Both Hotels generally perform similarly however,
-# it is evident that resort hotels generate the most revenue for the business with 
-# peak times happening in the summer months. City hotels however perform better in off-peak
-# seasons. 
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust =1))
+
+# This code reflects the monthly revenue of each hotel type. I take the table from eariler,
+# and I modified it so it can be used for visualizations. I then make the two types distinguishable for easier
+# better understanding.
 Customer_Type_Revenue <- Hotel_Revenue %>% 
   filter(is_canceled == 0) %>% 
   group_by(customer_type) %>% 
